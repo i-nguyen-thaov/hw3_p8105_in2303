@@ -1,0 +1,16 @@
+---
+title: "P8105 HW 3"
+author: "Isabella Nguyen"
+date: "2026-10-15"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Set up 
+```{r}
+library(tidyverse)
+```
+
