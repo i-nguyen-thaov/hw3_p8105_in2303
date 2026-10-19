@@ -1,7 +1,7 @@
 ---
 title: "P8105 HW 3"
 author: "Isabella Nguyen"
-date: "2026-10-15"
+date: "2026-10-19"
 output: github_document
 ---
 
@@ -136,14 +136,14 @@ nhanes = left_join(
 __Table__
 ```{r}
 
-summary = nhanes |> 
+nhanes |> 
   group_by(education, sex) |>
   summarize(n = n_distinct(seqn)) |>
   pivot_wider(
     names_from = sex, 
     values_from = n
-  ) 
-knitr::kable(summary)
+  ) |>
+knitr::kable(caption = "Education level by sex")
 
 nhanes |>
   distinct(seqn, sex, age, education) |>
@@ -184,4 +184,124 @@ nhanes |>
   theme(axis.text.x = element_text(size = 6))
 
 ```
+
 In the early hours and later in the day ( around minutes 0-500 and minutes 1250-1440), MIMS activity is low in all three education levels and in both sexes. MIMS activity elevates and is maintained around 500 minutes until around 1250 minutes across participants. Curves for both male and female are relatively similar with a small elevated difference in MIMS activity in female participants with an more than high school education.
+
+### Problem 3
+
+__Loading and cleaning Citi Bike dataset__
+```{r}
+jan_twenty = read.csv("./data/citibike/Jan 2020 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    month = "January",
+    year = 2020,
+    weekdays = factor(weekdays, c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+  )
+
+jan_twentyfour = read.csv("./data/citibike/Jan 2024 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    month = "January",
+    year = 2024,
+    weekdays = factor(weekdays, c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+  )
+
+july_twenty = read_csv("./data/citibike/July 2020 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    month = "July",
+    year = 2020, 
+    weekdays = factor(weekdays, c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+  )
+
+july_twentyfour = read.csv("./data/citibike/July 2024 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    month = "July",
+    year = 2024,
+    weekdays = factor(weekdays, c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+  )
+
+citi_df = 
+  bind_rows(jan_twenty, jan_twentyfour, july_twenty, july_twentyfour) |>
+  select(year, month, weekdays, everything())
+
+```
+This `citi_df` dataset lists information on unique Citi Bike rides in January and July of 2020 and 2024. The year specifies the year of the bike ride and month specifies the month of the bike ride. The `weekdays` column specifies the day of the week the ride was on (Monday, Tuesday, ... etc). `ride_id` assignes a unique identifier to each ride. `rideable type` describes the bike type, either a classic or electric bike. `duration` describes the ride time in minutes. `start_station_name` and `end_station_name` describes the start and end locations of the bike rides. `member_casual` shows if the bike rider is either a member of the app or simply a casual rider as "member" or "casual". 
+
+__Table of total rides__
+```{r}
+citi_df |>
+  group_by(year, month, member_casual) |>
+  summarize(n = n_distinct(ride_id)) |>
+  pivot_wider(
+    names_from = member_casual,
+    values_from = n
+  ) |>
+knitr::kable(caption = "Total rides by time and membership")
+```
+Over time from January 2024 to July 2024, the total amount of bike rides increased across membership status. In all time points, more rides are completed by riders who are members of Citi Bike. 
+
+__Popular stations__
+```{r}
+citi_df |>
+  filter(year == 2024 & month == "July") |>
+  group_by(start_station_name) |>
+  summarize(n = n_distinct(ride_id)) |>
+  slice_max(n, n = 5) |> 
+  rename(
+    "start station" = start_station_name,
+    "# of rides" = n
+  ) |>
+knitr::kable(caption = "5 most popular start stations in July 2024")
+```
+__Plot of time vs median ride duration__
+```{r}
+citi_df |>
+  group_by(year, month, weekdays) |>
+  summarize(med_duration = median(duration, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(x = weekdays, 
+             y = med_duration,
+             color = month, 
+             group = month)) +
+  geom_point() + 
+  geom_line() +
+  facet_grid(. ~ year) +
+  scale_x_discrete(labels = \(x) str_sub(x,1,3)) +
+  labs(
+    title = "Median ride duration by weekday, month, and year",
+    x = "Day of the week", 
+    y = "Median ride duration in minutes",
+  )
+
+
+```
+In both 2020 and 2024, median rider duration was lower in January all days of the week. Median ride duration increases on the weekends in all times but January 2024. Overall, median ride duration is higher in July of both 2020 and 2024 throughout all days of the week. In 2020, median ride duration is overall higher than in 2024.
+
+__Figure for ride duration by month and membership status in 2024__
+
+```{r}
+citi_df |>
+  filter(year == 2024) |>
+  ggplot(aes(
+    x = month,
+    y = duration, 
+    fill = member_casual
+  )) +
+  geom_boxplot(linewidth = 0.3, outlier.size = 0.5, outlier.alpha = 0.3) +
+  facet_grid(. ~ rideable_type) +
+  labs(
+    title = "Ride duration in minutes by month, membership, and bike type",
+    x = "Month",
+    y = "Ride duration in minutes"
+  )
+
+```
+
+Ride duration is generally higher in casual riders than in members. Casual riders also have a more spread out distribution of ride duration than members. The ride duration distribution between casual riders and members seems to be smaller in electric bike users. Ride duration between classic and electric bikes seems relatively similar, with slightly longer duration in classic bikes. Ride duration increases in July in both bike types and membership types.
+
+
+
+
+
