@@ -74,4 +74,114 @@ snow_plot =
 
 temp_plot + snow_plot
 ```
-For the temp_plot, a hexbin was created to model tmax vs tmin. snow fall distribution by year was modeled using a ridge plot. packages `hexbin` and `ggridges` both had to be called for this. we use the `patchwork` package to make our plots lay side by side. 
+For the temp_plot, a hexbin was created to model tmax vs tmin. snow fall distribution by year was modeled using a ridge plot. packages `hexbin` and `ggridges` both had to be called for this. we use the `patchwork` package to make our plots lay side by side.
+
+### Problem 2
+
+__Data Import and Cleaning__
+```{r}
+covar = read.csv("./data/nhanes_covar.csv", skip = 4) |>
+  janitor::clean_names() |> 
+  mutate(
+    sex = case_match(
+      sex,
+      1 ~ "male",
+      2 ~
+        "female"
+    ),
+    seqn = as.character(seqn), 
+    education = case_match(
+      education, 
+      1 ~ "less than high school",
+      2 ~ "high school equivalent", 
+      3 ~ "more than high school"
+    ),
+    education = factor(
+      education,
+      levels = c("less than high school", "high school equivalent", "more than high school")
+      ), 
+  ) |>
+  filter(age >= 21) |> 
+  drop_na()
+
+
+
+accel = read.csv("./data/nhanes_accel.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    seqn = as.character(seqn)
+  ) |> 
+  pivot_longer(
+    min1:min1440,
+    names_to = "minute",
+    names_prefix = "min", 
+    values_to = "accel"
+  ) |>
+  mutate(
+    minute = as.numeric(minute)
+  )
+
+```
+
+
+__Merging datasets__
+```{r}
+nhanes = left_join(
+  covar,
+  accel, 
+  by = "seqn"
+)
+```
+
+__Table__
+```{r}
+
+summary = nhanes |> 
+  group_by(education, sex) |>
+  summarize(n = n_distinct(seqn)) |>
+  pivot_wider(
+    names_from = sex, 
+    values_from = n
+  ) 
+knitr::kable(summary)
+
+nhanes |>
+  distinct(seqn, sex, age, education) |>
+  ggplot(aes(x = education, y = age, fill = sex)) +
+  geom_boxplot()
+```
+
+
+__Aggregate accelerometer data__
+```{r}
+
+total = nhanes |>
+  group_by(seqn, age, education, sex) |>
+  summarize(total_activity = sum(accel))
+
+total |> 
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point() + 
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ education)
+```
+Across education levels, total activity decreases with increasing age. Total MIMS activity trends to be more elevated in males between 40 and 80 years of age in the less than high school group. In the high school equivalent and more than high school education levels, female participants appear to trend towards greater total activity than male subjects throughout the majority of ages recorded.
+
+
+__24 hr activity time courses__
+
+```{r}
+# x minutes
+# y = accel
+# group color = sex
+# facet = education
+
+nhanes |>
+  ggplot(aes(x = minute, y = accel, color = sex)) +
+  geom_line(aes(group = seqn), alpha = 0.2) +
+  geom_smooth(se = FALSE) +
+  facet_grid(.~ education) + 
+  theme(axis.text.x = element_text(size = 6))
+
+```
+In the early hours and later in the day ( around minutes 0-500 and minutes 1250-1440), MIMS activity is low in all three education levels and in both sexes. MIMS activity elevates and is maintained around 500 minutes until around 1250 minutes across participants. Curves for both male and female are relatively similar with a small elevated difference in MIMS activity in female participants with an more than high school education.
